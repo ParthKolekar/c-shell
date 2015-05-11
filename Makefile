@@ -19,12 +19,12 @@ clean :
 clear : clean
 
 debug: clear
-	$(CC) $(DEVEL_FLAGS) $(DEBUG_FLAGS) -c *.c
-	$(CC) $(DEVEL_FLAGS) $(DEBUG_FLAGS) -o $(OBJ) *.o $(LFLAGS)
+	$(CC) $(DEVEL_FLAGS) $(DEBUG_FLAGS) -c shell.c
+	$(CC) $(DEVEL_FLAGS) $(DEBUG_FLAGS) -o $(OBJ) shell.o $(LFLAGS)
 
 ofast : clear
-	$(CC) $(CFLAGS) -c *.c
-	$(CC) $(CFLAGS) -o $(OBJ) *.o $(LFLAGS)
+	$(CC) $(CFLAGS) -c shell.c
+	$(CC) $(CFLAGS) -o $(OBJ) shell.o $(LFLAGS)
 
 install : $(OBJ)
 	@echo "Installing program to $(DESTDIR)$(BINDIR) ..."

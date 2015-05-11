@@ -169,7 +169,7 @@ void parseCommandLine ( char *command )
     run_process ( command , args , flags , inputFile , outputFile );
 }
 
-int main ( const int argc , const char ** argv )
+int main ( )
 {
     char command[1000];
     while (1)
