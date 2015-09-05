@@ -1,30 +1,20 @@
 OBJ = shell
-override CFLAGS += -Ofast -funroll-loops -flto -Wall
-override DEVEL_FLAGS += -g -Wall -Wextra 
-override DEBUG_FLAGS += -DDEBUG
+override CFLAGS += -O3 -funroll-loops -flto -Wall
 override LFLAGS += 
 CC = gcc
 PREFIX ?= /usr/local
 BINDIR = $(PREFIX)/bin
 
 %.o : %.c
-	$(CC) $(DEVEL_FLAGS) -c $^
+	$(CC) $(CFLAGS) -c $^
 
 $(OBJ) : shell.o
-	$(CC) $(DEVEL_FLAGS) $^ -o $@ $(LFLAGS)
+	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
 clean :
-	rm -f *.o $(OBJ)
+	rm -f shell.o $(OBJ)
 
 clear : clean
-
-debug: clear
-	$(CC) $(DEVEL_FLAGS) $(DEBUG_FLAGS) -c shell.c
-	$(CC) $(DEVEL_FLAGS) $(DEBUG_FLAGS) -o $(OBJ) shell.o $(LFLAGS)
-
-ofast : clear
-	$(CC) $(CFLAGS) -c shell.c
-	$(CC) $(CFLAGS) -o $(OBJ) shell.o $(LFLAGS)
 
 install : $(OBJ)
 	@echo "Installing program to $(DESTDIR)$(BINDIR) ..."
