@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/syscall.h>
+#include <errno.h>
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -11,16 +12,16 @@
 #define HARAKIRI 1143
 
 char * readLine(char * buffer) {
-	char * ch = buffer;
-	while ((*ch = getchar()) != '\n')
-		ch++;
-	*ch = 0;
-	return buffer;
+    char * ch = buffer;
+    while ((*ch = getchar()) != '\n')
+        ch++;
+    *ch = 0;
+    return buffer;
 }
 
 void parse(char * line, char ** argv) {
     while (*line != '\0' && *line != '>' && *line != '<') {
-    	// trim leading spaces
+        // trim leading spaces
         while (*line == ' ' || *line == '\t' || *line == '\n')
             *line++ = '\0';
 
@@ -36,92 +37,62 @@ void parse(char * line, char ** argv) {
 
 int run_process(char * command, char ** args, int flags, char * inputFile, char * outputFile) {
     int pid = fork();
+    if (pid < 0) {
+        fprintf(stderr, "%s\n", strerror(errno));
+        return HARAKIRI; // Because Kill Yourself. But there is no self to kill.... #existential_crisis
+    }
+
     int status = 0;
     if (pid != 0) {
-    	// hold the parent and let it wait
+
+        // hold the parent and let it wait
         waitpid (pid , &status , WUNTRACED);
+
+        // Maybe kill childs that return HARAKIRI, but they kill -TERM themselves anyways...
         return 0;
     } else {
         int fd_in = 0;
         int fd_out = 1;
-        switch (flags & 1)
-        {
-            case 0:
-                break;
-            case 1:
-                if (inputFile == NULL)
-                {
-                    fprintf(stderr,"INVALID FILE!!\n");
-                    kill (getpid() , SIGTERM);
-                    return HARAKIRI; // Because Kill Yourself.
-                }
-                if (access ( inputFile , F_OK ))
-                {
-                    fprintf(stderr,"INVALID FILE!!\n");
-                    kill (getpid() , SIGTERM);
-                    return HARAKIRI; // Because Kill Yourself.
-                }
-                fd_in = open ( inputFile , O_RDWR );
-                if (fd_in == -1)
-                {
-                    fprintf(stderr, "PERMISSIONS DENIED!!\n");
-                    kill (getpid() , SIGTERM);
-                    return HARAKIRI; // Because Kill Yourself.
-                }
-                dup2(fd_in , STDIN_FILENO);
-                close (fd_in);
-                break;
+        if (flags & 1) {
+            if (access(inputFile, F_OK) == -1) {
+                fprintf(stderr, "%s\n", strerror(errno));
+                kill(getpid(), SIGTERM);
+                return HARAKIRI; // Because Kill Yourself.
+            }
+            fd_in = open(inputFile, O_RDWR);
+            if (fd_in == -1) {
+                fprintf(stderr, "%s\n", strerror(errno));
+                kill(getpid(), SIGTERM);
+                return HARAKIRI; // Because Kill Yourself.
+            }
+            dup2(fd_in, STDIN_FILENO);
+            close(fd_in);
         }
-        switch ((flags & 2) >> 1)
-        {
-            case 0:
-                break;
-            case 1:
-                if (outputFile == NULL)
-                {
-                    fprintf(stderr,"INVALID FILE!!\n");
-                    kill (getpid() , SIGTERM);
-                    return HARAKIRI; // Because Kill Yourself.
-                }
-                fd_out = open ( outputFile , O_RDWR | O_CREAT | O_TRUNC , S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH | S_IWGRP | S_IWOTH );
-                if (fd_out == -1)
-                {
-                    fprintf(stderr , "PERMISSIONS DENIED!!\n");
-                    kill (getpid() , SIGTERM);
-                    return HARAKIRI; // Because Kill Yourself.
-                }
-                dup2(fd_out , STDOUT_FILENO);
-                close (fd_out);
-                break;
+        if ((flags & 2)) {
+            fd_out = open(outputFile, O_RDWR | O_CREAT | O_TRUNC , S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH | S_IWGRP | S_IWOTH);
+            if (fd_out == -1) {
+                fprintf(stderr, "%s\n", strerror(errno));
+                kill(getpid(), SIGTERM);
+                return HARAKIRI; // Because Kill Yourself.
+            }
+            dup2(fd_out, STDOUT_FILENO);
+            close(fd_out);
         }
-        switch ((flags & 4) >> 2)
-        {
-            case 0:
-                break;
-            case 1:
-                if (outputFile == NULL)
-                {
-                    fprintf(stderr , "INVALID FILE!!\n");
-                    kill (getpid() , SIGTERM);
-                    return HARAKIRI; // Because Kill Yourself.
-                }
-                fd_out = open ( outputFile , O_RDWR | O_CREAT | O_APPEND , S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH | S_IWGRP | S_IWOTH );
-                if (fd_out == -1)
-                {
-                    fprintf(stderr , "PERMISSIONS DENIED!!\n");
-                    kill (getpid() , SIGTERM);
-                    return HARAKIRI; // Because Kill Yourself.
-                }
-                dup2(fd_out , STDOUT_FILENO);
-                close (fd_out);
-                break;
+        if ((flags & 4)) {
+            fd_out = open(outputFile, O_RDWR | O_CREAT | O_APPEND , S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH | S_IWGRP | S_IWOTH);
+            if (fd_out == -1) {
+                fprintf(stderr, "%s\n", strerror(errno));
+                kill(getpid() , SIGTERM);
+                return HARAKIRI; // Because Kill Yourself.
+            }
+            dup2(fd_out, STDOUT_FILENO);
+            close (fd_out);
         }
-        if (execvp ( command , args ) < 0)
-		{
-            fprintf ( stderr , "COULD NOT FIND COMMAND : %s\n" , command );
-		    kill (getpid() , SIGTERM);
-		    return HARAKIRI;  // Because Kill Yourself.
-		}
+        if (execvp(command, args) == -1) {
+            fprintf(stderr, "%s\n", strerror(errno));
+            kill(getpid() , SIGTERM);
+            return HARAKIRI;  // Because Kill Yourself.
+        }
     }
     return 0;
 }
@@ -132,6 +103,13 @@ void parseAndExecCommandLine(char * command) {
     char * inputFile = NULL;
     char * outputFile = NULL;
     int flags = 0;
+
+    // Flag conventions!!
+    // 0x00 = no redirection
+    // 0x01 = stdin redirection
+    // 0x02 = stdout redirection (write mode)
+    // 0x04 = stdout redirection (append mode)
+
     int len;
 
     for (len = 0 ; args[len] ; len++)
@@ -141,7 +119,7 @@ void parseAndExecCommandLine(char * command) {
     for (i = 0 ; args[i] ; i++) {
 
         if (args[i][0] == '<') {
-            if (i + 1 < len)
+            if (i + 1 <= len)
                 inputFile = args[i + 1];
             else
                 inputFile = NULL;
@@ -150,16 +128,23 @@ void parseAndExecCommandLine(char * command) {
             i++;
         }
 
+        if (!args[i]) {
+            fprintf(stderr, "%s\n", "Syntax Error");
+            return;
+        }
+
         if (args[i][0] == '>') {
             flags |= 2;
             if (strlen(args[i]) == 2 && args[i][1] == '>') {
                 flags |= 4;
                 flags &= ~2;
             }
-            if (i + 1 < len)
+
+            if (i + 1 <= len)
                 outputFile = args[i + 1];
             else
                 outputFile = NULL;
+
             args[i] = NULL;
             i++;
         }
@@ -168,8 +153,8 @@ void parseAndExecCommandLine(char * command) {
 }
 
 int main (const int argc, const char ** argv) {
-	// command buffer. 
-	// Here's to hoping no one types a command longer than that.
+    // command buffer. 
+    // Here's to hoping no one types a command longer than that.
     char command[1000];
 
     while (1) {
@@ -246,5 +231,3 @@ int main (const int argc, const char ** argv) {
     }
     return 0;
 }
-
-
